@@ -1,5 +1,7 @@
 # JavaScript版vnts的实现，cloudflare worker
 
+<a href="https://deepwiki.com/lmq8267/vnts-cf"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+
 [VNT](https://github.com/vnt-dev/vnt) 是一个简便高效的异地组网、内网穿透工具，源项目使用 Rust 实现。本项目使用 Cloudflare Worker + Durable Object 实现了 JavaScript 版本的 WebSocket vnts 服务端，支持网络中继转发与 P2P 打洞信息交换。
 
 > **注意：本项目仅供学习交流使用**
