@@ -114,35 +114,35 @@ export class RelayRoom {
     }
   }
 
-  async doInit() {  
-  try {  
-    // 初始化PacketHandler（包括RSA）  
-    await this.packetHandler.init();  
-      
-    // 获取当前部署版本（从环境变量或代码中获取）  
-    const currentVersion = this.env.VERSION || Date.now().toString();  
-      
-    const storedData = await this.state.storage.get("deployData");  
-    if (storedData && storedData.version === currentVersion) {  
-      // 版本相同，恢复原有启动时间  
-      this.startTime = storedData.startTime;  
-      // logger.info(`[RelayRoom-初始化] 从存储中恢复启动时间: ${this.getStartTimeBeijing()}`);  
-    } else {  
-      // 版本不同或首次部署，设置新的启动时间  
-      this.startTime = Date.now();  
-      await this.state.storage.put("deployData", {  
-        version: currentVersion,  
-        startTime: this.startTime  
-      });  
-      // logger.info(`[RelayRoom-初始化] 检测到新版本，设置新的启动时间: ${this.getStartTimeBeijing()}`);  
-    }  
-      
-    // logger.info(`[RelayRoom-初始化] RelayRoom初始化完成`);  
-  } catch (error) {  
-    logger.error(`[RelayRoom-初始化] 初始化失败: ${error.message}`, error);  
-    throw error;  
-  }  
-}
+  async doInit() {
+    try {
+      // 初始化PacketHandler（包括RSA）
+      await this.packetHandler.init();
+
+      // 获取当前部署版本（从环境变量或代码中获取）
+      const currentVersion = this.env.VERSION || Date.now().toString();
+
+      const storedData = await this.state.storage.get("deployData");
+      if (storedData && storedData.version === currentVersion && storedData.startTime > 0) {
+        // 版本相同，恢复原有启动时间
+        this.startTime = storedData.startTime;
+       // logger.info(`[RelayRoom-初始化] 从存储中恢复启动时间: ${this.getStartTimeBeijing()}`);
+      } else {
+        // 版本不同或首次部署，设置新的启动时间
+        this.startTime = Date.now();
+        await this.state.storage.put("deployData", {
+          version: currentVersion,
+          startTime: this.startTime,
+        });
+        // logger.info(`[RelayRoom-初始化] 检测到新版本，设置新的启动时间: ${this.getStartTimeBeijing()}`);
+      }
+
+      // logger.info(`[RelayRoom-初始化] RelayRoom初始化完成`);
+    } catch (error) {
+      logger.error(`[RelayRoom-初始化] 初始化失败: ${error.message}`, error);
+      throw error;
+    }
+  }
   // 计算并格式化运行时长
   getRunningDuration() {
     const now = Date.now();
@@ -1567,6 +1567,7 @@ export class RelayRoom {
   }
 
   async fetch(request) {
+  await this.init();
     const clientIp = this.getClientIp(request);
     const url = new URL(request.url);
     // logger.debug(`处理请求: ${url.pathname}`);
@@ -1597,27 +1598,28 @@ export class RelayRoom {
           }
         );
       }
-      const networkCount = this.packetHandler.cache?.networks?.size || 0;  
-let totalOnlineClients = 0;  
-  
-// 统计所有网络中的在线客户端数  
-if (this.packetHandler.cache?.networks) {  
-  for (const [token, networkInfo] of this.packetHandler.cache.networks) {  
-    for (const [virtualIp, client] of networkInfo.clients) {  
-      if (client.online) {  
-        totalOnlineClients++;  
-      }  
-    }  
-  }  
-}
+      const networkCount = this.packetHandler.cache?.networks?.size || 0;
+      let totalOnlineClients = 0;
+
+      // 统计所有网络中的在线客户端数
+      if (this.packetHandler.cache?.networks) {
+        for (const [token, networkInfo] of this.packetHandler.cache.networks) {
+          for (const [virtualIp, client] of networkInfo.clients) {
+            if (client.online) {
+              totalOnlineClients++;
+            }
+          }
+        }
+      }
+      const connectionCount = this.connections.size;
       const status = {
         WebSocket服务: "正常",
         启动时间: this.getStartTimeBeijing(),
         已运行: this.getRunningDuration(),
         支持协议: "VNT WebSocket",
         服务状态: connectionCount >= 0 ? "可用" : "异常",
-        Token使用数: this.contexts.size,
-        客户端在线数: connectionCount,
+        Token使用数: networkCount,
+        客户端在线数: totalOnlineClients,
       };
       return new Response(this.getTestModalHTML(status), {
         status: 200,
@@ -1653,7 +1655,6 @@ if (this.packetHandler.cache?.networks) {
   }
 
   async handleWebSocket(request) {
-    await this.init();
     const [client, server] = Object.values(new WebSocketPair());
     server.accept();
 
